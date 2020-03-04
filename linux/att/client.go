@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rigado/ble"
 	"github.com/pkg/errors"
+	"github.com/rigado/ble"
 )
 
 // NotificationHandler handles notification or indication.
@@ -27,7 +27,7 @@ type Client struct {
 	done       chan bool
 	connClosed chan struct{}
 
-	reqHandler map[int]func ([]byte) error
+	reqHandler map[int]func([]byte) error
 
 	server *Server
 }
@@ -35,14 +35,14 @@ type Client struct {
 // NewClient returns an Attribute Protocol Client.
 func NewClient(l2c ble.Conn, h NotificationHandler, done chan bool) *Client {
 	c := &Client{
-		l2c:     l2c,
-		rspc:    make(chan []byte),
-		inc:     make(chan []byte, 10),
-		chTxBuf: make(chan []byte, 1),
-		rxBuf:   make([]byte, ble.MaxMTU),
-		chErr:   make(chan error, 1),
-		handler: h,
-		done:    done,
+		l2c:        l2c,
+		rspc:       make(chan []byte),
+		inc:        make(chan []byte, 10),
+		chTxBuf:    make(chan []byte, 1),
+		rxBuf:      make([]byte, ble.MaxMTU),
+		chErr:      make(chan error, 1),
+		handler:    h,
+		done:       done,
 		connClosed: make(chan struct{}),
 	}
 	c.chTxBuf <- make([]byte, l2c.TxMTU(), l2c.TxMTU())
@@ -553,20 +553,20 @@ func (c *Client) asyncReqLoop() {
 		// keep trying?
 		select {
 		case <-c.done:
-			fmt.Println("[BLE ATT]: exited client async loop: done")
+			logger.Debug("[BLE ATT]: exited client async loop: done")
 			return
 		case <-c.connClosed:
 			logger.Debug("[BLE ATT]: exited client async loop: conn closed")
 			return
 		default:
 			if c.l2c == nil {
-				fmt.Println("exited client async loop: l2c nil")
+				logger.Debug("[BLE ATT] exited client async loop: l2c nil")
 				return
 			}
 			//ok
 		}
 
-		in := <- c.inc
+		in := <-c.inc
 		rsp := c.server.HandleRequest(in)
 		if rsp == nil {
 			continue
@@ -607,14 +607,14 @@ func (c *Client) Loop() {
 		// keep trying?
 		select {
 		case <-c.done:
-			fmt.Println("exited client loop: done")
+			logger.Debug("exited client loop: done")
 			return
 		case <-c.connClosed:
 			logger.Debug("exited client async loop: conn closed")
 			return
 		default:
 			if c.l2c == nil {
-				fmt.Println("exited client loop: l2c nil")
+				logger.Debug("exited client loop: l2c nil")
 				return
 			}
 			//ok
@@ -634,10 +634,10 @@ func (c *Client) Loop() {
 
 		//all incoming requests are even numbered
 		//which means the last bit should be 0
-		if b[0] & 0x01 == 0x00 {
+		if b[0]&0x01 == 0x00 {
 			select {
 			case <-c.done:
-				fmt.Println("exited client loop: closed after async req rx")
+				logger.Info("exited client loop: closed after async req rx")
 				return
 			case <-c.connClosed:
 				logger.Debug("exited client async loop: conn closed")
@@ -654,7 +654,7 @@ func (c *Client) Loop() {
 			logger.Debug("client", "rsp", fmt.Sprintf("% X", c.rxBuf[:n]))
 			select {
 			case <-c.done:
-				fmt.Println("exited client loop: closed after rsp rx")
+				logger.Info("exited client loop: closed after rsp rx")
 				return
 			case <-c.connClosed:
 				logger.Debug("exited client async loop: conn closed")
@@ -668,7 +668,7 @@ func (c *Client) Loop() {
 		logger.Debug("client", "notfi", fmt.Sprintf("% X", b))
 		select {
 		case <-c.done:
-			fmt.Println("exited client loop: closed after rx")
+			logger.Info("exited client loop: closed after rx")
 			return
 		case <-c.connClosed:
 			logger.Debug("exited client async loop: conn closed")
